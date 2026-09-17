@@ -45,11 +45,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 py-8">
+    <div className="auth-shell flex-col py-8">
       
       {/* Brand Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-blue-700 flex items-center justify-center text-white font-black text-xl shadow-xs">
+        <div className="auth-brand-mark">
           ₹
         </div>
         <div>
@@ -59,7 +59,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-lg p-8 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-6">
+      <div className="auth-card max-w-lg p-6 sm:p-8 space-y-6">
         <div className="space-y-1">
           <h2 className="text-xl font-bold text-slate-900">Create Student Profile</h2>
           <p className="text-xs text-slate-500">Set up your credentials and monthly allowance baseline</p>

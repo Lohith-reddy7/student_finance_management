@@ -18,6 +18,7 @@ export function App() {
   const [incomes, setIncomes] = useState<any[]>([]);
   const [prediction, setPrediction] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [appError, setAppError] = useState('');
 
   const fetchUserData = async () => {
     try {
@@ -31,6 +32,7 @@ export function App() {
       setPrediction(predRes.data || {});
     } catch (err) {
       console.error('Failed to load user records:', err);
+      setAppError('We could not load your latest financial records. Please refresh and try again.');
     }
   };
 
@@ -63,12 +65,32 @@ export function App() {
     initAuth();
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    let settleTimer: number | undefined;
+
+    const handleScroll = () => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      root.classList.add('is-scrolling');
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => root.classList.remove('is-scrolling'), 180);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.clearTimeout(settleTimer);
+      root.classList.remove('is-scrolling');
+    };
+  }, []);
+
   const handleLoginSuccess = async (userData: any, accessToken: string, refreshToken: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     setUser(userData);
     setBalance(userData.currentBalance || 0);
     setAllowance(userData.allowanceAmount || 0);
+    setAppError('');
 
     await fetchUserData();
   };
@@ -82,7 +104,7 @@ export function App() {
     setPrediction({});
   };
 
-  const handleAddTransaction = async (rawText: string) => {
+  const handleAddTransaction = async (rawText: string): Promise<boolean> => {
     try {
       const res = await api.post('/transactions/parse', { rawText });
       if (res.data.transaction) {
@@ -91,9 +113,15 @@ export function App() {
         
         const predRes = await api.get('/analytics/predict-zero');
         setPrediction(predRes.data || {});
+        setAppError('');
+        return true;
       }
+      setAppError('The transaction could not be saved. Please try again.');
+      return false;
     } catch (err) {
       console.error('Failed to add transaction:', err);
+      setAppError('The transaction could not be saved. Check the text and try again.');
+      return false;
     }
   };
 
@@ -108,12 +136,14 @@ export function App() {
 
       const predRes = await api.get('/analytics/predict-zero');
       setPrediction(predRes.data || {});
+      setAppError('');
     } catch (err) {
       console.error('Failed to delete transaction:', err);
+      setAppError('The transaction could not be deleted. Please try again.');
     }
   };
 
-  const handleAddIncome = async (title: string, amount: number, sourceCategory: string) => {
+  const handleAddIncome = async (title: string, amount: number, sourceCategory: string): Promise<boolean> => {
     try {
       const res = await api.post('/income', { title, amount, sourceCategory });
       if (res.data.income) {
@@ -122,9 +152,15 @@ export function App() {
 
         const predRes = await api.get('/analytics/predict-zero');
         setPrediction(predRes.data || {});
+        setAppError('');
+        return true;
       }
+      setAppError('The extra income entry could not be saved. Please try again.');
+      return false;
     } catch (err) {
       console.error('Failed to log extra income:', err);
+      setAppError('The extra income entry could not be saved. Please try again.');
+      return false;
     }
   };
 
@@ -138,8 +174,10 @@ export function App() {
 
       const predRes = await api.get('/analytics/predict-zero');
       setPrediction(predRes.data || {});
+      setAppError('');
     } catch (err) {
       console.error('Failed to delete income:', err);
+      setAppError('The extra income entry could not be deleted. Please try again.');
     }
   };
 
@@ -149,7 +187,7 @@ export function App() {
     allowanceAmount: number,
     currentBalance: number,
     allowanceCycleDay: number
-  ) => {
+  ): Promise<boolean> => {
     try {
       const res = await api.put('/auth/profile', {
         name,
@@ -164,8 +202,12 @@ export function App() {
 
       const predRes = await api.get('/analytics/predict-zero');
       setPrediction(predRes.data || {});
+      setAppError('');
+      return true;
     } catch (err) {
       console.error('Failed to update profile setup:', err);
+      setAppError('Your profile could not be updated. Please try again.');
+      return false;
     }
   };
 
@@ -204,7 +246,13 @@ export function App() {
             !user ? (
               <Navigate to="/login" replace />
             ) : (
-              <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+              <div className="app-shell text-slate-900 flex flex-col">
+                {appError && (
+                  <div className="app-error" role="alert">
+                    <span>{appError}</span>
+                    <button type="button" onClick={() => setAppError('')} aria-label="Dismiss error">Dismiss</button>
+                  </div>
+                )}
                 <Navbar
                   user={user}
                   balance={balance}
@@ -212,16 +260,17 @@ export function App() {
                   onLogout={handleLogout}
                 />
 
-                <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row gap-6 p-4 md:p-6">
+                <div className="app-content content-grid flex-1 w-full">
                   <Sidebar />
 
-                  <main className="flex-1 min-w-0">
+                  <main className="page-wrap">
                     <Routes>
                       <Route
                         path="/"
                         element={
                           <Dashboard
                             user={user}
+                            incomes={incomes}
                             transactions={transactions}
                             prediction={prediction}
                             onAddTransaction={handleAddTransaction}

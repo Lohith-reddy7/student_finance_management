@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Search, Trash2, ArrowRight, CheckCircle2, Play } from 'lucide-react';
 import { api } from '../lib/api';
+import { formatCurrency } from '../lib/format';
 
 interface TransactionsProps {
   transactions: any[];
-  onAddTransaction: (rawText: string) => void;
+  onAddTransaction: (rawText: string) => Promise<boolean>;
   onDeleteTransaction: (id: string) => void;
 }
 
@@ -16,6 +17,15 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, onAddT
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
   const categories = ['ALL', 'Food & Dining', 'Transport & Travel', 'Academics & Books', 'Entertainment & Subs', 'Rent & Housing', 'Shopping & Essentials', 'Miscellaneous'];
+  const categoryClass = (category: string) => {
+    if (category === 'Food & Dining') return 'category-food';
+    if (category === 'Transport & Travel') return 'category-transport';
+    if (category === 'Academics & Books') return 'category-academics';
+    if (category === 'Entertainment & Subs') return 'category-entertainment';
+    if (category === 'Rent & Housing') return 'category-rent';
+    if (category === 'Shopping & Essentials') return 'category-shopping';
+    return 'category-misc';
+  };
 
   const runSandboxTest = async () => {
     if (!sandboxText.trim()) return;
@@ -46,7 +56,7 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, onAddT
   });
 
   return (
-    <div className="space-y-6">
+    <div className="ledger-page space-y-6">
       
       {/* Header */}
       <div>
@@ -88,10 +98,10 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, onAddT
             {sandboxResult ? (
               <div className="space-y-1.5 text-slate-700">
                 <div><span className="text-slate-400 font-medium">Merchant:</span> <strong className="text-slate-900">{sandboxResult.merchant}</strong></div>
-                <div><span className="text-slate-400 font-medium">Amount:</span> <strong className="text-slate-900">₹{sandboxResult.amount}</strong></div>
-                <div><span className="text-slate-400 font-medium">Category:</span> <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{sandboxResult.category}</span></div>
+                <div><span className="text-slate-400 font-medium">Amount:</span> <strong className="text-slate-900">{formatCurrency(sandboxResult.amount)}</strong></div>
+                <div><span className="text-slate-400 font-medium">Category:</span> <span className={`category-badge ${categoryClass(sandboxResult.category)}`}>{sandboxResult.category}</span></div>
                 <button
-                  onClick={() => onAddTransaction(sandboxText)}
+                  onClick={async () => { await onAddTransaction(sandboxText); }}
                   className="mt-3 w-full py-1.5 rounded-lg bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 transition"
                 >
                   Save to Official Ledger
@@ -168,7 +178,7 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, onAddT
                       <span>{tx.merchant}</span>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-medium">
+                      <span className={`category-badge ${categoryClass(tx.category)}`}>
                         {tx.category}
                       </span>
                     </td>
@@ -176,7 +186,7 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, onAddT
                       {tx.rawText || 'Manual entry'}
                     </td>
                     <td className="py-3 px-4 text-right font-bold text-slate-900 text-sm">
-                      -₹{tx.amount}
+                      -{formatCurrency(tx.amount)}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { User, Mail, Wallet, Calendar, PlusCircle, Trash2, Check, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatCurrency } from '../lib/format';
 
 interface ProfilePageProps {
   user: any;
   incomes: any[];
   balance: number;
   allowance: number;
-  onUpdateProfile: (name: string, email: string, allowanceAmount: number, currentBalance: number, allowanceCycleDay: number) => void;
-  onAddIncome: (title: string, amount: number, sourceCategory: string) => void;
+  onUpdateProfile: (name: string, email: string, allowanceAmount: number, currentBalance: number, allowanceCycleDay: number) => Promise<boolean>;
+  onAddIncome: (title: string, amount: number, sourceCategory: string) => Promise<boolean>;
   onDeleteIncome: (id: string) => void;
 }
 
@@ -43,33 +44,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     'Other'
   ];
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(
+    const updated = await onUpdateProfile(
       name,
       email,
       parseFloat(allowanceAmount.toString()),
       parseFloat(currentBalance.toString()),
       parseInt(allowanceCycleDay.toString())
     );
+    if (!updated) return;
     setProfileSuccess(true);
     setTimeout(() => setProfileSuccess(false), 3000);
   };
 
-  const handleIncomeSubmit = (e: React.FormEvent) => {
+  const handleIncomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(incomeAmount);
     if (!incomeTitle.trim() || isNaN(amt) || amt <= 0) return;
 
     setIsSubmittingIncome(true);
-    onAddIncome(incomeTitle.trim(), amt, incomeCategory);
+    const added = await onAddIncome(incomeTitle.trim(), amt, incomeCategory);
+    if (!added) {
+      setIsSubmittingIncome(false);
+      return;
+    }
     setIncomeTitle('');
     setIncomeAmount('');
     setIsSubmittingIncome(false);
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="profile-page space-y-8 max-w-5xl mx-auto">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
@@ -92,7 +98,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {/* 1. ACCOUNT & ALLOWANCE SETUP FORM */}
         <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 font-bold">
+            <div className="w-10 h-10 rounded-xl border flex items-center justify-center font-bold" style={{ background: 'var(--info-bg)', borderColor: 'color-mix(in srgb, var(--info) 22%, transparent)', color: 'var(--info)' }}>
               <User className="w-5 h-5" />
             </div>
             <div>
@@ -257,7 +263,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <button
                 type="submit"
                 disabled={isSubmittingIncome}
-                className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+                className="btn-primary w-full"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Credit to Available Cash</span>
@@ -270,7 +276,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-900 text-sm">Monthly Extra Funds Log ({incomes.length})</h3>
               <span className="text-xs font-bold text-emerald-700">
-                Total Extra: ₹{incomes.reduce((acc, i) => acc + (i.amount || 0), 0).toLocaleString('en-IN')}
+                Total Extra: {formatCurrency(incomes.reduce((acc, i) => acc + (i.amount || 0), 0))}
               </span>
             </div>
 
@@ -297,7 +303,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-xs text-emerald-700">+₹{inc.amount}</span>
+                      <span className="font-bold text-xs text-emerald-700">+{formatCurrency(inc.amount)}</span>
                       <button
                         onClick={() => onDeleteIncome(inc._id)}
                         className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
