@@ -6,9 +6,10 @@ import { Dashboard } from './pages/Dashboard';
 import { Transactions } from './pages/Transactions';
 import { ProfilePage } from './pages/ProfilePage';
 import { AIAdvisor } from './pages/AIAdvisor';
+import { SavingsSprints } from './pages/SavingsSprints';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { api } from './lib/api';
+import { api, getAccessToken, setAuthTokens, clearAuthTokens } from './lib/api';
 
 export function App() {
   const [user, setUser] = useState<any>(null);
@@ -36,10 +37,14 @@ export function App() {
     }
   };
 
-  // Check auth state on load
+  // Check auth state on load - strictly isolated per browser tab
   useEffect(() => {
+    // Purge legacy shared tokens from localStorage to prevent cross-account tab leaks
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+
     const initAuth = async () => {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) {
         setLoading(false);
         return;
@@ -54,8 +59,7 @@ export function App() {
         await fetchUserData();
       } catch (err) {
         console.error('Auth verification failed:', err);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        clearAuthTokens();
         setUser(null);
       } finally {
         setLoading(false);
@@ -85,8 +89,7 @@ export function App() {
   }, []);
 
   const handleLoginSuccess = async (userData: any, accessToken: string, refreshToken: string) => {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    setAuthTokens(accessToken, refreshToken);
     setUser(userData);
     setBalance(userData.currentBalance || 0);
     setAllowance(userData.allowanceAmount || 0);
@@ -95,13 +98,18 @@ export function App() {
     await fetchUserData();
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      // Ignore if network offline
+    }
+    clearAuthTokens();
     setUser(null);
     setTransactions([]);
     setIncomes([]);
     setPrediction({});
+    window.location.href = '/login';
   };
 
   const handleAddTransaction = async (rawText: string): Promise<boolean> => {
@@ -300,6 +308,10 @@ export function App() {
                         }
                       />
                       <Route
+                        path="/sprints"
+                        element={<SavingsSprints user={user} onRefreshUser={fetchUserData} />}
+                      />
+                      <Route
                         path="/profile"
                         element={
                           <ProfilePage
@@ -310,6 +322,7 @@ export function App() {
                             onUpdateProfile={handleUpdateProfile}
                             onAddIncome={handleAddIncome}
                             onDeleteIncome={handleDeleteIncome}
+                            onLogout={handleLogout}
                           />
                         }
                       />

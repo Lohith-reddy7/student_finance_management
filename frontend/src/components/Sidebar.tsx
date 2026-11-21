@@ -1,13 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ReceiptText, UserCircle, Bot, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, UserCircle, Bot, Trophy, HelpCircle } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/transactions', label: 'Transaction Ledger', icon: ReceiptText },
+    { path: '/sprints', label: 'Savings Sprints', icon: Trophy },
     { path: '/advisor', label: 'AI Money Advisor', icon: Bot },
-    { path: '/profile', label: 'Profile & Extra Income', icon: UserCircle },
+    { path: '/profile', label: 'Profile', icon: UserCircle },
   ];
 
   return (

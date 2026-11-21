@@ -31,7 +31,7 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, onAddT
     if (!sandboxText.trim()) return;
     setIsTesting(true);
     try {
-      const res = await api.post('/transactions/parse', { rawText: sandboxText });
+      const res = await api.post('/transactions/parse', { rawText: sandboxText, previewOnly: true });
       setSandboxResult(res.data.nlpInfo || res.data);
     } catch (err) {
       const match = sandboxText.match(/(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i);

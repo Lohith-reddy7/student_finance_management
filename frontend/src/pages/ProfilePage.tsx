@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { User, Mail, Wallet, Calendar, PlusCircle, Trash2, Check, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Wallet, Calendar, PlusCircle, Trash2, Check, ArrowLeft, LogOut, Award, Sparkles, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatCurrency } from '../lib/format';
+import { AvatarDisplay } from '../components/AvatarDisplay';
 
 interface ProfilePageProps {
   user: any;
@@ -11,6 +12,7 @@ interface ProfilePageProps {
   onUpdateProfile: (name: string, email: string, allowanceAmount: number, currentBalance: number, allowanceCycleDay: number) => Promise<boolean>;
   onAddIncome: (title: string, amount: number, sourceCategory: string) => Promise<boolean>;
   onDeleteIncome: (id: string) => void;
+  onLogout?: () => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -20,7 +22,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   allowance,
   onUpdateProfile,
   onAddIncome,
-  onDeleteIncome
+  onDeleteIncome,
+  onLogout
 }) => {
   // Profile form state
   const [name, setName] = useState(user?.name || '');
@@ -29,6 +32,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [currentBalance, setCurrentBalance] = useState(balance || 3500);
   const [allowanceCycleDay, setAllowanceCycleDay] = useState(user?.allowanceCycleDay || 1);
   const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Sync inputs with user prop on load or updates
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      setAllowanceAmount(user.allowanceAmount !== undefined ? user.allowanceAmount : 8000);
+      setCurrentBalance(balance !== undefined ? balance : (user.currentBalance || 3500));
+      setAllowanceCycleDay(user.allowanceCycleDay || 1);
+    }
+  }, [user, balance]);
 
   // Extra Income form state
   const [incomeTitle, setIncomeTitle] = useState('');
@@ -46,16 +62,28 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = await onUpdateProfile(
-      name,
-      email,
-      parseFloat(allowanceAmount.toString()),
-      parseFloat(currentBalance.toString()),
-      parseInt(allowanceCycleDay.toString())
-    );
-    if (!updated) return;
-    setProfileSuccess(true);
-    setTimeout(() => setProfileSuccess(false), 3000);
+    setProfileError('');
+    setIsSavingProfile(true);
+
+    try {
+      const updated = await onUpdateProfile(
+        name.trim(),
+        email.trim(),
+        parseFloat(allowanceAmount.toString()),
+        parseFloat(currentBalance.toString()),
+        parseInt(allowanceCycleDay.toString())
+      );
+      if (updated) {
+        setProfileSuccess(true);
+        setTimeout(() => setProfileSuccess(false), 3500);
+      } else {
+        setProfileError('Failed to update profile. Please verify your details.');
+      }
+    } catch (err: any) {
+      setProfileError(err.response?.data?.error || 'Profile update failed.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleIncomeSubmit = async (e: React.FormEvent) => {
@@ -111,6 +139,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600" />
               <span>Settings updated successfully.</span>
+            </div>
+          )}
+
+          {profileError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{profileError}</span>
             </div>
           )}
 
@@ -196,12 +231,60 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+              disabled={isSavingProfile}
+              className="w-full py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>Save Profile Baseline</span>
+              <span>{isSavingProfile ? 'Saving Changes...' : 'Save Profile Baseline'}</span>
             </button>
           </form>
+
+          {/* Stash Avatar & Rewards Summary Card */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-16 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                <AvatarDisplay
+                  gender={user?.avatarConfig?.gender || 'man'}
+                  equipped={user?.avatarConfig?.equipped || {}}
+                  size="sm"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Avatar & Stash Points</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Balance: <strong className="text-amber-700 font-extrabold">{user?.rewardPoints || 0} pts</strong>
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/sprints"
+              className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 transition shrink-0"
+            >
+              Style in Sprints →
+            </Link>
+          </div>
+
+          {/* Account Logout / Session Card */}
+          {onLogout && (
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">Sign Out of Stash</span>
+                <span className="text-[11px] text-slate-500">End your active session securely</span>
+              </div>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="px-3.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 2. EXTRA MONTHLY INCOME & ALLOWANCE TOP-UP LOGGER */}

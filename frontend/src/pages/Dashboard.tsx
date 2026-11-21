@@ -106,55 +106,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* 2. DEDICATED ACTION CARDS (PROFILE & AI ADVISOR) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* Card A: Separate Profile & Monthly Extra Funds Option */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0" style={{ background: 'var(--info-bg)', borderColor: 'color-mix(in srgb, var(--info) 22%, transparent)', color: 'var(--info)' }}>
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Student Profile & Monthly Extra Funds</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Update baseline allowance (₹{user?.allowanceAmount?.toLocaleString('en-IN') || 0}) or record one-time funds (grandparents gifts, competition prizes, freelance).
-              </p>
-            </div>
+      {/* 2. DEDICATED ACTION CARD (AI ADVISOR) */}
+      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0" style={{ background: 'var(--soft)', borderColor: 'var(--line)', color: 'var(--ink)' }}>
+            <Bot className="w-5 h-5" />
           </div>
-
-          <Link
-            to="/profile"
-            className="btn-primary w-full sm:w-fit"
-          >
-            <span>Open Profile & Add Funds</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Personal AI Money Advisor</h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-2xl">
+              Ask questions about your spending ("Did I spend more on transport this week compared to last?") with fact-checked transaction citations.
+            </p>
+          </div>
         </div>
 
-        {/* Card B: AI Money Advisor Option */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0" style={{ background: 'var(--soft)', borderColor: 'var(--line)', color: 'var(--ink)' }}>
-              <Bot className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Personal AI Money Advisor</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Ask questions about your spending ("Did I spend more on transport this week compared to last?") with fact-checked transaction citations.
-              </p>
-            </div>
-          </div>
-
-          <Link
-            to="/advisor"
-            className="btn-secondary w-full sm:w-fit"
-          >
-            <span>Consult AI Advisor</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
+        <Link
+          to="/advisor"
+          className="btn-secondary w-full sm:w-auto shrink-0"
+        >
+          <span>Consult AI Advisor</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
       {/* 3. KEY METRIC CARDS */}

@@ -9,9 +9,34 @@ export const api = axios.create({
   }
 });
 
+// Strict per-tab session isolation: NEVER share tokens through localStorage across tabs
+export function getAccessToken(): string | null {
+  return sessionStorage.getItem('accessToken');
+}
+
+export function getRefreshToken(): string | null {
+  return sessionStorage.getItem('refreshToken');
+}
+
+export function setAuthTokens(accessToken: string, refreshToken: string) {
+  // Store strictly in this tab's sessionStorage to isolate accounts
+  sessionStorage.setItem('accessToken', accessToken);
+  sessionStorage.setItem('refreshToken', refreshToken);
+  // Clear any shared localStorage tokens so tabs never cross-contaminate
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+}
+
+export function clearAuthTokens() {
+  sessionStorage.removeItem('accessToken');
+  sessionStorage.removeItem('refreshToken');
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+}
+
 // Attach Access Token to every outgoing request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -25,21 +50,19 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = getRefreshToken();
       if (refreshToken) {
         try {
           const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
           const { accessToken, refreshToken: newRefreshToken } = res.data;
           
-          localStorage.setItem('accessToken', accessToken);
-          localStorage.setItem('refreshToken', newRefreshToken);
+          sessionStorage.setItem('accessToken', accessToken);
+          sessionStorage.setItem('refreshToken', newRefreshToken);
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         } catch (refreshErr) {
-          // Token renewal failed -> Clear auth state & redirect to login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          clearAuthTokens();
           window.location.href = '/login';
         }
       }
