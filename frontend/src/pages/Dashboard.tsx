@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { AlertCircle, PlusCircle, ArrowRight, UserCheck, Bot, CreditCard, Calendar, TrendingDown, DollarSign } from 'lucide-react';
+import { AlertCircle, PlusCircle, ArrowRight, UserCheck, Bot, CreditCard, WalletCards, ArrowDownRight, PiggyBank } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { cleanDisplayText, formatCurrency } from '../lib/format';
 
 interface DashboardProps {
   user: any;
+  incomes: any[];
   transactions: any[];
   prediction: any;
-  onAddTransaction: (rawText: string) => void;
+  onAddTransaction: (rawText: string) => Promise<boolean>;
   balance: number;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   user,
+  incomes,
   transactions,
   prediction,
   onAddTransaction,
@@ -31,102 +34,99 @@ export const Dashboard: React.FC<DashboardProps> = ({
     e.preventDefault();
     if (!rawText.trim()) return;
     setIsParsing(true);
-    setTimeout(() => {
-      onAddTransaction(rawText);
-      setRawText('');
+    setTimeout(async () => {
+      const saved = await onAddTransaction(rawText);
+      if (saved) setRawText('');
       setIsParsing(false);
     }, 300);
   };
 
   const isCritical = prediction.risk_level === 'CRITICAL';
+  const trackedExpenses = transactions.reduce((total, transaction) => total + Number(transaction.amount || 0), 0);
+  const extraIncome = incomes.reduce((total, income) => total + Number(income.amount || 0), 0);
+  const totalIncome = Number(user?.allowanceAmount || 0) + extraIncome;
+  const trackedSavings = totalIncome - trackedExpenses;
+  const categoryClass = (category: string) => {
+    if (category === 'Food & Dining') return 'category-food';
+    if (category === 'Transport & Travel') return 'category-transport';
+    if (category === 'Academics & Books') return 'category-academics';
+    if (category === 'Entertainment & Subs') return 'category-entertainment';
+    if (category === 'Rent & Housing') return 'category-rent';
+    if (category === 'Shopping & Essentials') return 'category-shopping';
+    return 'category-misc';
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-page space-y-6">
+
+      <div className="dashboard-intro">
+        <div>
+          <p className="eyebrow">Personal finance overview</p>
+          <h1 className="page-title">Good morning, {user?.name?.split(' ')[0] || 'there'}</h1>
+          <p className="page-subtitle">Here is the clearest view of your student money today.</p>
+        </div>
+        <Link to="/transactions" className="btn-secondary hidden sm:inline-flex">
+          <span>View ledger</span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
       
       {/* 1. ZERO-BALANCE FORECAST ALERT BANNER */}
-      <div className={`p-6 rounded-2xl border ${
+      <div className={`forecast-card p-6 rounded-2xl border ${
         isCritical 
-          ? 'bg-amber-50/70 border-amber-200 text-amber-900' 
-          : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+          ? 'forecast-critical bg-amber-50/70 border-amber-200 text-amber-900' 
+          : 'forecast-steady'
       } shadow-xs`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className={`p-3 rounded-xl ${
-              isCritical ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+            <div className={`forecast-icon p-3 rounded-xl ${
+              isCritical ? 'bg-amber-100 text-amber-700' : ''
             } shrink-0 mt-0.5`}>
               <AlertCircle className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                  isCritical ? 'bg-amber-200/80 text-amber-800' : 'bg-emerald-200/80 text-emerald-800'
+                <span className={`forecast-label text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                  isCritical ? 'bg-amber-200/80 text-amber-800' : ''
                 }`}>
                   Budget Runway Forecast
                 </span>
                 <span className="text-xs text-slate-500 font-medium">Estimated Zero-Balance Date</span>
               </div>
               <h2 className="text-xl md:text-2xl font-black text-slate-900 mt-1 tracking-tight">
-                Projected Zero Date: <span className={isCritical ? 'text-amber-700' : 'text-emerald-700'}>
+                Projected Zero Date: <span className={isCritical ? 'text-amber-700' : 'forecast-date'}>
                   {prediction.zero_balance_date_formatted || 'End of Month'}
                 </span>
               </h2>
               <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed font-normal">
-                {prediction.insight_msg || 'Monitor your daily spending velocity to ensure your cash lasts until your next allowance cycle.'}
+                {cleanDisplayText(prediction.insight_msg || 'Monitor your daily spending velocity to ensure your cash lasts until your next allowance cycle.')}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. DEDICATED ACTION CARDS (PROFILE & AI ADVISOR) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* Card A: Separate Profile & Monthly Extra Funds Option */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 shrink-0">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Student Profile & Monthly Extra Funds</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Update baseline allowance (₹{user?.allowanceAmount?.toLocaleString('en-IN') || 0}) or record one-time funds (grandparents gifts, competition prizes, freelance).
-              </p>
-            </div>
+      {/* 2. DEDICATED ACTION CARD (AI ADVISOR) */}
+      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0" style={{ background: 'var(--soft)', borderColor: 'var(--line)', color: 'var(--ink)' }}>
+            <Bot className="w-5 h-5" />
           </div>
-
-          <Link
-            to="/profile"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-xs transition shadow-xs w-full sm:w-fit"
-          >
-            <span>Open Profile & Add Funds</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Personal AI Money Advisor</h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-2xl">
+              Ask questions about your spending ("Did I spend more on transport this week compared to last?") with fact-checked transaction citations.
+            </p>
+          </div>
         </div>
 
-        {/* Card B: AI Money Advisor Option */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700 shrink-0">
-              <Bot className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Personal AI Money Advisor</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Ask questions about your spending ("Did I spend more on transport this week compared to last?") with fact-checked transaction citations.
-              </p>
-            </div>
-          </div>
-
-          <Link
-            to="/advisor"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition shadow-xs w-full sm:w-fit"
-          >
-            <span>Consult AI Advisor</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
+        <Link
+          to="/advisor"
+          className="btn-secondary w-full sm:w-auto shrink-0"
+        >
+          <span>Consult AI Advisor</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
       {/* 3. KEY METRIC CARDS */}
@@ -135,41 +135,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Card 1: Available Cash */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Available Cash</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Balance</span>
             <CreditCard className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-slate-900">₹{balance.toLocaleString('en-IN')}</div>
-          <p className="text-[11px] text-slate-500">Current Student Balance</p>
+          <div className="text-2xl font-black text-slate-900">{formatCurrency(balance)}</div>
+          <p className="text-[11px] text-slate-500">Available cash right now</p>
         </div>
 
-        {/* Card 2: Recommended Daily Limit */}
+        {/* Card 2: Income */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Safe Daily Limit</span>
-            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Income</span>
+            <WalletCards className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-slate-900">₹{prediction.recommended_daily_limit || 200}/day</div>
-          <p className="text-[11px] text-slate-500">To last through allowance day</p>
+          <div className="text-2xl font-black text-slate-900">{formatCurrency(totalIncome)}</div>
+          <p className="text-[11px] text-slate-500">Allowance and extra funds</p>
         </div>
 
-        {/* Card 3: Days Left Until Allowance */}
+        {/* Card 3: Expenses */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Next Allowance In</span>
-            <Calendar className="w-4 h-4 text-slate-400" />
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Expenses</span>
+            <ArrowDownRight className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-blue-700">{prediction.days_until_allowance || 30} Days</div>
-          <p className="text-[11px] text-slate-500">Cycle day {user?.allowanceCycleDay || 1} of month</p>
+          <div className="text-2xl font-black text-slate-900">{formatCurrency(trackedExpenses)}</div>
+          <p className="text-[11px] text-slate-500">Recorded in your ledger</p>
         </div>
 
-        {/* Card 4: Daily Burn Rate */}
+        {/* Card 4: Savings */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Average Daily Spend</span>
-            <TrendingDown className="w-4 h-4 text-slate-400" />
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Savings</span>
+            <PiggyBank className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-slate-900">₹{prediction.daily_burn_rate || 0}/day</div>
-          <p className="text-[11px] text-slate-500">Spending velocity rate</p>
+          <div className={`text-2xl font-black ${trackedSavings >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+            {trackedSavings < 0 ? '-' : ''}{formatCurrency(trackedSavings)}
+          </div>
+          <p className="text-[11px] text-slate-500">Income less recorded expenses</p>
         </div>
 
       </div>
@@ -242,7 +244,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div>
                     <div className="font-semibold text-xs text-slate-900">{tx.merchant}</div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                      <span className={`category-badge ${categoryClass(tx.category)}`}>
                         {tx.category}
                       </span>
                       <span>•</span>
@@ -252,7 +254,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="text-right">
-                  <div className="font-bold text-xs text-slate-900">-₹{tx.amount}</div>
+                  <div className="font-bold text-xs text-slate-900">-{formatCurrency(tx.amount)}</div>
                   {tx.autoTagged && (
                     <span className="text-[10px] text-slate-400 font-medium">Auto-Categorized</span>
                   )}

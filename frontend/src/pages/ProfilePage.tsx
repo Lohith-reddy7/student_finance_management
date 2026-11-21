@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { User, Mail, Wallet, Calendar, PlusCircle, Trash2, Check, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Wallet, Calendar, PlusCircle, Trash2, Check, ArrowLeft, LogOut, Award, Sparkles, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatCurrency } from '../lib/format';
+import { AvatarDisplay } from '../components/AvatarDisplay';
 
 interface ProfilePageProps {
   user: any;
   incomes: any[];
   balance: number;
   allowance: number;
-  onUpdateProfile: (name: string, email: string, allowanceAmount: number, currentBalance: number, allowanceCycleDay: number) => void;
-  onAddIncome: (title: string, amount: number, sourceCategory: string) => void;
+  onUpdateProfile: (name: string, email: string, allowanceAmount: number, currentBalance: number, allowanceCycleDay: number) => Promise<boolean>;
+  onAddIncome: (title: string, amount: number, sourceCategory: string) => Promise<boolean>;
   onDeleteIncome: (id: string) => void;
+  onLogout?: () => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -19,7 +22,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   allowance,
   onUpdateProfile,
   onAddIncome,
-  onDeleteIncome
+  onDeleteIncome,
+  onLogout
 }) => {
   // Profile form state
   const [name, setName] = useState(user?.name || '');
@@ -28,6 +32,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [currentBalance, setCurrentBalance] = useState(balance || 3500);
   const [allowanceCycleDay, setAllowanceCycleDay] = useState(user?.allowanceCycleDay || 1);
   const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Sync inputs with user prop on load or updates
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      setAllowanceAmount(user.allowanceAmount !== undefined ? user.allowanceAmount : 8000);
+      setCurrentBalance(balance !== undefined ? balance : (user.currentBalance || 3500));
+      setAllowanceCycleDay(user.allowanceCycleDay || 1);
+    }
+  }, [user, balance]);
 
   // Extra Income form state
   const [incomeTitle, setIncomeTitle] = useState('');
@@ -43,33 +60,50 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     'Other'
   ];
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(
-      name,
-      email,
-      parseFloat(allowanceAmount.toString()),
-      parseFloat(currentBalance.toString()),
-      parseInt(allowanceCycleDay.toString())
-    );
-    setProfileSuccess(true);
-    setTimeout(() => setProfileSuccess(false), 3000);
+    setProfileError('');
+    setIsSavingProfile(true);
+
+    try {
+      const updated = await onUpdateProfile(
+        name.trim(),
+        email.trim(),
+        parseFloat(allowanceAmount.toString()),
+        parseFloat(currentBalance.toString()),
+        parseInt(allowanceCycleDay.toString())
+      );
+      if (updated) {
+        setProfileSuccess(true);
+        setTimeout(() => setProfileSuccess(false), 3500);
+      } else {
+        setProfileError('Failed to update profile. Please verify your details.');
+      }
+    } catch (err: any) {
+      setProfileError(err.response?.data?.error || 'Profile update failed.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleIncomeSubmit = (e: React.FormEvent) => {
+  const handleIncomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(incomeAmount);
     if (!incomeTitle.trim() || isNaN(amt) || amt <= 0) return;
 
     setIsSubmittingIncome(true);
-    onAddIncome(incomeTitle.trim(), amt, incomeCategory);
+    const added = await onAddIncome(incomeTitle.trim(), amt, incomeCategory);
+    if (!added) {
+      setIsSubmittingIncome(false);
+      return;
+    }
     setIncomeTitle('');
     setIncomeAmount('');
     setIsSubmittingIncome(false);
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="profile-page space-y-8 max-w-5xl mx-auto">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
@@ -92,7 +126,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {/* 1. ACCOUNT & ALLOWANCE SETUP FORM */}
         <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 font-bold">
+            <div className="w-10 h-10 rounded-xl border flex items-center justify-center font-bold" style={{ background: 'var(--info-bg)', borderColor: 'color-mix(in srgb, var(--info) 22%, transparent)', color: 'var(--info)' }}>
               <User className="w-5 h-5" />
             </div>
             <div>
@@ -105,6 +139,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600" />
               <span>Settings updated successfully.</span>
+            </div>
+          )}
+
+          {profileError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{profileError}</span>
             </div>
           )}
 
@@ -190,12 +231,60 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+              disabled={isSavingProfile}
+              className="w-full py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>Save Profile Baseline</span>
+              <span>{isSavingProfile ? 'Saving Changes...' : 'Save Profile Baseline'}</span>
             </button>
           </form>
+
+          {/* Stash Avatar & Rewards Summary Card */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-16 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                <AvatarDisplay
+                  gender={user?.avatarConfig?.gender || 'man'}
+                  equipped={user?.avatarConfig?.equipped || {}}
+                  size="sm"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Avatar & Stash Points</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Balance: <strong className="text-amber-700 font-extrabold">{user?.rewardPoints || 0} pts</strong>
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/sprints"
+              className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-200 transition shrink-0"
+            >
+              Style in Sprints →
+            </Link>
+          </div>
+
+          {/* Account Logout / Session Card */}
+          {onLogout && (
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">Sign Out of Stash</span>
+                <span className="text-[11px] text-slate-500">End your active session securely</span>
+              </div>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="px-3.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 2. EXTRA MONTHLY INCOME & ALLOWANCE TOP-UP LOGGER */}
@@ -257,7 +346,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <button
                 type="submit"
                 disabled={isSubmittingIncome}
-                className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+                className="btn-primary w-full"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Credit to Available Cash</span>
@@ -270,7 +359,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-900 text-sm">Monthly Extra Funds Log ({incomes.length})</h3>
               <span className="text-xs font-bold text-emerald-700">
-                Total Extra: ₹{incomes.reduce((acc, i) => acc + (i.amount || 0), 0).toLocaleString('en-IN')}
+                Total Extra: {formatCurrency(incomes.reduce((acc, i) => acc + (i.amount || 0), 0))}
               </span>
             </div>
 
@@ -297,7 +386,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-xs text-emerald-700">+₹{inc.amount}</span>
+                      <span className="font-bold text-xs text-emerald-700">+{formatCurrency(inc.amount)}</span>
                       <button
                         onClick={() => onDeleteIncome(inc._id)}
                         className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition"

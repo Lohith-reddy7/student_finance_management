@@ -3,16 +3,26 @@ import { Transaction } from '../models/Transaction.js';
 import { User } from '../models/User.js';
 import { authenticate } from './auth.js';
 import { parseTransactionNLP } from '../services/aiBridge.js';
+import { Sprint } from '../models/Sprint.js';
+import { socketService } from '../services/socketService.js';
 
 const router = express.Router();
 
 // Parse SMS/Text using NLP Auto-Tagging
 router.post('/parse', authenticate, async (req, res) => {
   try {
-    const { rawText } = req.body;
+    const { rawText, previewOnly } = req.body;
     if (!rawText) return res.status(400).json({ error: 'rawText string is required' });
 
     const parsed = await parseTransactionNLP(rawText);
+
+    // If caller only wants preview / test categorization, do not save or charge
+    if (previewOnly) {
+      return res.json({
+        nlpInfo: parsed,
+        previewOnly: true
+      });
+    }
 
     const transaction = await Transaction.create({
       userId: req.user.id,
@@ -31,6 +41,43 @@ router.post('/parse', authenticate, async (req, res) => {
       await user.save();
     }
 
+    // Automatically sync spending with any active Savings Sprints this specific user participates in
+    try {
+      const activeSprints = await Sprint.find({
+        'participants.userId': req.user.id,
+        status: 'active'
+      });
+
+      for (const sprint of activeSprints) {
+        const participant = sprint.participants.find(p => p.userId && String(p.userId) === String(req.user.id));
+        if (participant) {
+          participant.spent += parsed.amount;
+          participant.lastActivity = `Logged ₹${parsed.amount} for ${parsed.merchant}`;
+          participant.updatedAt = new Date();
+
+          sprint.activities.unshift({
+            userName: participant.name,
+            text: `logged ₹${parsed.amount} for ${parsed.merchant} (${parsed.category})`,
+            timestamp: new Date()
+          });
+
+          if (sprint.activities.length > 25) sprint.activities = sprint.activities.slice(0, 25);
+          await sprint.save();
+
+          const doc = sprint.toObject();
+          doc.participants = doc.participants.sort((a, b) => a.spent - b.spent);
+          socketService.broadcastSprintUpdate(sprint._id, doc);
+          socketService.broadcastActivity(sprint._id, {
+            userName: participant.name,
+            text: `logged ₹${parsed.amount} for ${parsed.merchant}`
+          });
+          console.log(`[Sprint Sync] User ${req.user.id} (${participant.name}) logged ₹${parsed.amount} for ${parsed.merchant} in sprint ${sprint.title}`);
+        }
+      }
+    } catch (sprintErr) {
+      console.error('Error updating sprint participants:', sprintErr);
+    }
+
     res.status(201).json({
       transaction,
       nlpInfo: parsed,
@@ -47,10 +94,11 @@ router.post('/manual', authenticate, async (req, res) => {
     const { merchant, amount, category, date } = req.body;
     if (!merchant || !amount) return res.status(400).json({ error: 'Merchant and amount are required' });
 
+    const parsedAmount = parseFloat(amount);
     const transaction = await Transaction.create({
       userId: req.user.id,
       merchant,
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       category: category || 'Miscellaneous',
       confidence: 1.0,
       autoTagged: false,
@@ -59,8 +107,45 @@ router.post('/manual', authenticate, async (req, res) => {
 
     const user = await User.findById(req.user.id);
     if (user) {
-      user.currentBalance = Math.max(0, user.currentBalance - parseFloat(amount));
+      user.currentBalance = Math.max(0, user.currentBalance - parsedAmount);
       await user.save();
+    }
+
+    // Automatically sync spending with any active Savings Sprints user participates in
+    try {
+      const activeSprints = await Sprint.find({
+        'participants.userId': req.user.id,
+        status: 'active'
+      });
+
+      for (const sprint of activeSprints) {
+        const participant = sprint.participants.find(p => p.userId && String(p.userId) === String(req.user.id));
+        if (participant) {
+          participant.spent += parsedAmount;
+          participant.lastActivity = `Logged ₹${parsedAmount} for ${merchant}`;
+          participant.updatedAt = new Date();
+
+          sprint.activities.unshift({
+            userName: participant.name,
+            text: `logged ₹${parsedAmount} for ${merchant} (${category || 'General'})`,
+            timestamp: new Date()
+          });
+
+          if (sprint.activities.length > 25) sprint.activities = sprint.activities.slice(0, 25);
+          await sprint.save();
+
+          const doc = sprint.toObject();
+          doc.participants = doc.participants.sort((a, b) => a.spent - b.spent);
+          socketService.broadcastSprintUpdate(sprint._id, doc);
+          socketService.broadcastActivity(sprint._id, {
+            userName: participant.name,
+            text: `logged ₹${parsedAmount} for ${merchant}`
+          });
+          console.log(`[Sprint Sync] User ${req.user.id} (${participant.name}) logged ₹${parsedAmount} for ${merchant} in sprint ${sprint.title}`);
+        }
+      }
+    } catch (sprintErr) {
+      console.error('Error updating sprint participants on manual entry:', sprintErr);
     }
 
     res.status(201).json(transaction);

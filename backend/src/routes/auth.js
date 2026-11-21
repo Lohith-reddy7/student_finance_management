@@ -70,12 +70,15 @@ router.post('/register', async (req, res) => {
       accessToken,
       refreshToken,
       user: {
-        id: user._id,
+        id: user._id.toString(),
+        _id: user._id.toString(),
         name: user.name,
         email: user.email,
         allowanceAmount: user.allowanceAmount,
         currentBalance: user.currentBalance,
-        allowanceCycleDay: user.allowanceCycleDay
+        allowanceCycleDay: user.allowanceCycleDay,
+        rewardPoints: user.rewardPoints || 0,
+        redeemedRewards: user.redeemedRewards || []
       }
     });
   } catch (err) {
@@ -105,12 +108,15 @@ router.post('/login', async (req, res) => {
       accessToken,
       refreshToken,
       user: {
-        id: user._id,
+        id: user._id.toString(),
+        _id: user._id.toString(),
         name: user.name,
         email: user.email,
         allowanceAmount: user.allowanceAmount,
         currentBalance: user.currentBalance,
-        allowanceCycleDay: user.allowanceCycleDay
+        allowanceCycleDay: user.allowanceCycleDay,
+        rewardPoints: user.rewardPoints || 0,
+        redeemedRewards: user.redeemedRewards || []
       }
     });
   } catch (err) {
@@ -151,7 +157,10 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password -refreshToken');
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    const userObj = user.toObject();
+    userObj.id = user._id.toString();
+    userObj._id = user._id.toString();
+    res.json(userObj);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -160,23 +169,61 @@ router.get('/me', authenticate, async (req, res) => {
 // Update Profile Financial Setup
 router.put('/profile', authenticate, async (req, res) => {
   try {
-    const { allowanceAmount, currentBalance, allowanceCycleDay } = req.body;
+    const { name, email, allowanceAmount, currentBalance, allowanceCycleDay } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (allowanceAmount !== undefined) user.allowanceAmount = parseFloat(allowanceAmount);
-    if (currentBalance !== undefined) user.currentBalance = parseFloat(currentBalance);
-    if (allowanceCycleDay !== undefined) user.allowanceCycleDay = parseInt(allowanceCycleDay);
+    if (name && typeof name === 'string' && name.trim()) {
+      user.name = name.trim();
+    }
+
+    if (email && typeof email === 'string' && email.trim()) {
+      const lowerEmail = email.trim().toLowerCase();
+      if (lowerEmail !== user.email) {
+        const existing = await User.findOne({ email: lowerEmail });
+        if (existing) {
+          return res.status(400).json({ error: 'This email address is already in use by another account' });
+        }
+        user.email = lowerEmail;
+      }
+    }
+
+    if (allowanceAmount !== undefined && !isNaN(allowanceAmount)) {
+      user.allowanceAmount = Math.max(0, parseFloat(allowanceAmount));
+    }
+    if (currentBalance !== undefined && !isNaN(currentBalance)) {
+      user.currentBalance = Math.max(0, parseFloat(currentBalance));
+    }
+    if (allowanceCycleDay !== undefined && !isNaN(allowanceCycleDay)) {
+      user.allowanceCycleDay = Math.min(31, Math.max(1, parseInt(allowanceCycleDay)));
+    }
 
     await user.save();
     res.json({
-      id: user._id,
+      id: user._id.toString(),
+      _id: user._id.toString(),
       name: user.name,
       email: user.email,
       allowanceAmount: user.allowanceAmount,
       currentBalance: user.currentBalance,
-      allowanceCycleDay: user.allowanceCycleDay
+      allowanceCycleDay: user.allowanceCycleDay,
+      rewardPoints: user.rewardPoints || 0,
+      redeemedRewards: user.redeemedRewards || []
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logout endpoint (clears refresh token in DB)
+router.post('/logout', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      user.refreshToken = null;
+      await user.save();
+    }
+    res.json({ message: 'Logged out successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
