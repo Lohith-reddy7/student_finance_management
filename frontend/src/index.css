@@ -119,7 +119,6 @@ h1, h2, h3, h4, .brand-heading { font-family: 'Space Grotesk', sans-serif; }
 .dashboard-page > :nth-child(4) > div::before { background: var(--highlight); content: ''; height: 3px; left: 18px; opacity: .7; position: absolute; right: 18px; top: 0; }
 .dashboard-page > :nth-child(4) > div:nth-child(2)::before { background: var(--positive); }
 .dashboard-page > :nth-child(4) > div:nth-child(3)::before { background: var(--danger); }
-.dashboard-page > :nth-child(4) > div:nth-child(4)::before { background: var(--olive); }
 .ledger-page > :nth-child(2) { background-image: linear-gradient(rgba(40, 75, 99, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(40, 75, 99, .04) 1px, transparent 1px); background-size: 24px 24px; }
 .profile-page > :nth-child(2) > div:first-child { background-image: linear-gradient(150deg, rgba(220, 238, 209, .28), transparent 42%); }
 .profile-page > :nth-child(2) > div:last-child > div:first-child { background-image: radial-gradient(circle at 92% 12%, rgba(111, 156, 235, .16), transparent 28%); }
@@ -190,7 +189,7 @@ h1, h2, h3, h4, .brand-heading { font-family: 'Space Grotesk', sans-serif; }
 .dashboard-page > :nth-child(5) { grid-column: 1 / -1; order: 4; }
 .dashboard-page > :nth-child(6) { grid-column: 1 / -1; order: 5; }
 .dashboard-page > :nth-child(3) { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.dashboard-page > :nth-child(4) { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dashboard-page > :nth-child(4) { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .dashboard-page > :nth-child(4) > div { display: flex; flex-direction: column; justify-content: space-between; min-height: 126px; }
 .dashboard-page > :nth-child(5), .dashboard-page > :nth-child(6) { min-height: 100%; }
 .ledger-page { max-width: 1120px; min-width: 0; width: 100%; }
@@ -215,7 +214,8 @@ h1, h2, h3, h4, .brand-heading { font-family: 'Space Grotesk', sans-serif; }
 @media (min-width: 768px) and (max-width: 1199px) {
   .content-grid { grid-template-columns: 240px minmax(0, 1fr); padding: 24px; }
   .dashboard-page { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  .dashboard-page > :nth-child(3), .dashboard-page > :nth-child(4) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-page > :nth-child(3) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-page > :nth-child(4) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .app-shell table { min-width: 620px; }
 }
 

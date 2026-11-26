@@ -11,10 +11,18 @@ router.get('/predict-zero', authenticate, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const transactions = await Transaction.find({ userId: req.user.id }).sort({ date: 1 });
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthTransactions = await Transaction.find({
+      userId: req.user.id,
+      date: { $gte: startOfMonth }
+    }).sort({ date: 1 });
+
+    const allTransactions = await Transaction.find({ userId: req.user.id }).sort({ date: 1 });
+    const transactionsForPrediction = thisMonthTransactions.length > 0 ? thisMonthTransactions : allTransactions;
 
     const prediction = await predictZeroDateML(
-      transactions,
+      transactionsForPrediction,
       user.allowanceAmount || 8000,
       user.currentBalance || 5000,
       user.allowanceCycleDay || 1

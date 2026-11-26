@@ -37,12 +37,8 @@ export function App() {
     }
   };
 
-  // Check auth state on load - strictly isolated per browser tab
+  // Check auth state on load
   useEffect(() => {
-    // Purge legacy shared tokens from localStorage to prevent cross-account tab leaks
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-
     const initAuth = async () => {
       const token = getAccessToken();
       if (!token) {
@@ -219,6 +215,24 @@ export function App() {
     }
   };
 
+  const handleSetMonthlyAllowance = async (amount: number, addToBalance: boolean): Promise<boolean> => {
+    try {
+      const res = await api.post('/auth/monthly-allowance', { amount, addToBalance });
+      setUser(res.data.user);
+      setAllowance(res.data.user.allowanceAmount);
+      setBalance(res.data.user.currentBalance);
+
+      const predRes = await api.get('/analytics/predict-zero');
+      setPrediction(predRes.data || {});
+      setAppError('');
+      return true;
+    } catch (err) {
+      console.error('Failed to update monthly allowance:', err);
+      setAppError('Could not update allowance for this month. Please try again.');
+      return false;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center text-blue-700 font-bold text-xs">
@@ -229,6 +243,33 @@ export function App() {
       </div>
     );
   }
+
+  // Derive current month totals so Balance = Total Money - Expenses is always strictly guaranteed
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const currentMonthTransactions = transactions.filter((tx) => {
+    const rawDate = tx.date || tx.createdAt;
+    if (!rawDate) return false;
+    const d = new Date(rawDate);
+    if (isNaN(d.getTime())) return false;
+    return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
+  });
+
+  const currentMonthIncomes = incomes.filter((inc) => {
+    const rawDate = inc.date || inc.createdAt;
+    if (!rawDate) return false;
+    const d = new Date(rawDate);
+    if (isNaN(d.getTime())) return false;
+    return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
+  });
+
+  const currentMonthExpenses = currentMonthTransactions.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  const currentMonthExtra = currentMonthIncomes.reduce((sum, inc) => sum + (Number(inc.amount) || 0), 0);
+  const effectiveAllowance = user?.allowanceAmount !== undefined ? user.allowanceAmount : (allowance || 0);
+  const totalMoney = effectiveAllowance + currentMonthExtra;
+  const computedBalance = Math.max(0, totalMoney - currentMonthExpenses);
 
   return (
     <BrowserRouter>
@@ -263,8 +304,8 @@ export function App() {
                 )}
                 <Navbar
                   user={user}
-                  balance={balance}
-                  allowance={allowance}
+                  balance={computedBalance}
+                  allowance={effectiveAllowance}
                   onLogout={handleLogout}
                 />
 
@@ -282,7 +323,8 @@ export function App() {
                             transactions={transactions}
                             prediction={prediction}
                             onAddTransaction={handleAddTransaction}
-                            balance={balance}
+                            onSetMonthlyAllowance={handleSetMonthlyAllowance}
+                            balance={computedBalance}
                           />
                         }
                       />
@@ -302,7 +344,7 @@ export function App() {
                           <AIAdvisor
                             user={user}
                             transactions={transactions}
-                            balance={balance}
+                            balance={computedBalance}
                             onRefreshTransactions={fetchUserData}
                           />
                         }
@@ -317,8 +359,8 @@ export function App() {
                           <ProfilePage
                             user={user}
                             incomes={incomes}
-                            balance={balance}
-                            allowance={allowance}
+                            balance={computedBalance}
+                            allowance={effectiveAllowance}
                             onUpdateProfile={handleUpdateProfile}
                             onAddIncome={handleAddIncome}
                             onDeleteIncome={handleDeleteIncome}

@@ -306,64 +306,84 @@ router.post('/:id/simulate-peer', authenticate, async (req, res) => {
 
 export const REWARDS_CATALOG = [
   {
-    id: 'rew_cafe_150',
-    title: 'Campus Cafeteria Beverage & Meal Pass',
-    description: 'Get ₹150 off any hot beverage, fresh juice, or cafeteria meal at your student dining hall.',
-    cost: 150,
-    category: 'Dining',
-    tag: 'Popular',
-    value: '₹150 Food Pass',
-    iconName: 'Coffee'
-  },
-  {
-    id: 'rew_book_250',
-    title: 'Campus Bookstore & Stationery Discount',
-    description: 'Get ₹250 off academic textbooks, notebooks, printouts, or campus stationery supplies.',
-    cost: 250,
-    category: 'Academics',
-    tag: 'Student Essential',
-    value: '₹250 Book Voucher',
-    iconName: 'BookOpen'
-  },
-  {
-    id: 'rew_swiggy_400',
-    title: 'Swiggy / Zomato Late-Night Feast Voucher',
-    description: 'Get ₹200 off your next food delivery order on Swiggy or Zomato.',
-    cost: 400,
+    id: 'rew_swiggy_100',
+    title: 'Swiggy Cash / Food Pass',
+    description: 'Flat ₹100 direct cash credit for your Swiggy or Zomato food delivery cravings.',
+    cost: 200,
     category: 'Food Delivery',
     tag: 'Top Pick',
+    value: '₹100 Swiggy Cash',
+    iconName: 'Utensils'
+  },
+  {
+    id: 'rew_swiggy_200',
+    title: 'Swiggy / Zomato Late-Night Feast Voucher',
+    description: 'Flat ₹200 off your next food delivery order on Swiggy or Zomato.',
+    cost: 400,
+    category: 'Food Delivery',
+    tag: 'Popular',
     value: '₹200 Coupon',
     iconName: 'Utensils'
   },
   {
-    id: 'rew_spotify_600',
-    title: '1-Month Music Streaming Pass',
-    description: 'Enjoy 30 days of ad-free study playlists and podcasts on Spotify or Apple Music.',
-    cost: 600,
-    category: 'Entertainment',
-    tag: 'Entertainment',
-    value: '1-Month Pass',
-    iconName: 'Headphones'
-  },
-  {
-    id: 'rew_movie_750',
-    title: 'Weekend Cinema Movie Ticket Pass',
-    description: 'Flat ₹300 off weekend cinema tickets for post-exam celebrations with friends.',
-    cost: 750,
+    id: 'rew_bms_150',
+    title: 'BookMyShow Movie Voucher',
+    description: 'Flat ₹150 off movie tickets at BookMyShow for weekend movies.',
+    cost: 300,
     category: 'Entertainment',
     tag: 'Weekend Special',
+    value: '₹150 Ticket Pass',
+    iconName: 'Ticket'
+  },
+  {
+    id: 'rew_bms_300',
+    title: 'BookMyShow Weekend Cinema Pass',
+    description: 'Flat ₹300 off weekend cinema tickets for post-exam celebrations with friends.',
+    cost: 600,
+    category: 'Entertainment',
+    tag: 'Bestseller',
     value: '₹300 Ticket Pass',
     iconName: 'Ticket'
   },
   {
-    id: 'rew_badge_1000',
-    title: 'Stash Certified Budget Master Certificate & Medal',
-    description: 'Exclusive Gold Saver profile medal and downloadable FinTech budgeting certification for your CV.',
-    cost: 1000,
-    category: 'Status & Certification',
-    tag: 'Prestige',
-    value: 'Gold Profile Badge',
-    iconName: 'Award'
+    id: 'rew_blinkit_100',
+    title: 'Blinkit / Zepto Late-Night Munchies Pass',
+    description: 'Get ₹100 instant off snacks, instant noodles, and energy drinks for study sessions.',
+    cost: 200,
+    category: 'Quick Commerce',
+    tag: 'Hostel Essential',
+    value: '₹100 Snack Pass',
+    iconName: 'Coffee'
+  },
+  {
+    id: 'rew_spotify_350',
+    title: '1-Month Spotify Premium Pass',
+    description: 'Enjoy 30 days of ad-free study playlists and podcasts on Spotify.',
+    cost: 450,
+    category: 'Entertainment',
+    tag: 'Music',
+    value: '1-Month Pass',
+    iconName: 'Headphones'
+  },
+  {
+    id: 'rew_rapido_50',
+    title: 'Rapido / Uber College Commute Pass',
+    description: 'Save ₹50 on your daily campus or metro bike taxi / cab rides.',
+    cost: 100,
+    category: 'Commute',
+    tag: 'Daily Saver',
+    value: '₹50 Ride Pass',
+    iconName: 'ShoppingBag'
+  },
+  {
+    id: 'rew_book_200',
+    title: 'Campus Bookstore & Stationery Pass',
+    description: 'Get ₹200 off academic textbooks, notebooks, printouts, or campus stationery supplies.',
+    cost: 350,
+    category: 'Academics',
+    tag: 'Student Essential',
+    value: '₹200 Book Voucher',
+    iconName: 'BookOpen'
   }
 ];
 

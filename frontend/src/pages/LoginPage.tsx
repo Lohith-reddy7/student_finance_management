@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
-import { api } from '../lib/api';
+import { Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { api, clearAuthTokens } from '../lib/api';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any, accessToken: string, refreshToken: string) => void;
@@ -10,23 +10,49 @@ interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Clear any stale tokens when arriving on the login page to avoid expired token conflicts
+  useEffect(() => {
+    clearAuthTokens();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    // Read directly from DOM form elements to reliably handle browser autofill & password managers
+    const form = e.currentTarget;
+    const emailEl = form.querySelector<HTMLInputElement>('input[name="email"]');
+    const passwordEl = form.querySelector<HTMLInputElement>('input[name="password"]');
+
+    const cleanEmail = (emailEl?.value || email || '').trim().toLowerCase();
+    const cleanPassword = (passwordEl?.value || password || '').trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setError('Please enter both your email address and password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { email: cleanEmail, password: cleanPassword });
       const { user, accessToken, refreshToken } = res.data;
       
       onLoginSuccess(user, accessToken, refreshToken);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid email or password');
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message && err.message.toLowerCase().includes('network')) {
+        setError('Cannot connect to authentication service. Please check your network connection.');
+      } else {
+        setError('Login attempt failed. Please verify your credentials and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -60,13 +86,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate={false}>
           <div>
-            <label className="text-xs font-semibold text-slate-700 mb-1 block">Email Address</label>
+            <label htmlFor="login-email" className="text-xs font-semibold text-slate-700 mb-1 block">
+              Email Address
+            </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
+                id="login-email"
+                name="email"
                 type="email"
+                autoComplete="username email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -77,17 +108,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 mb-1 block">Password</label>
+            <label htmlFor="login-password" className="text-xs font-semibold text-slate-700 mb-1 block">
+              Password
+            </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
-                type="password"
+                id="login-password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-700"
+                className="w-full pl-10 pr-10 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-700"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 

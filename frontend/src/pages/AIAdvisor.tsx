@@ -110,7 +110,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, transactions, balanc
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">AI Financial Advisor</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Personalized insights powered by Google Gemini and Pinecone vector retrieval.
+            Personalized financial guidance and analysis based on your verified student spending.
           </p>
         </div>
 
@@ -183,7 +183,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, transactions, balanc
                 )}
 
                 <div className="text-[10px] text-slate-400 px-1">
-                  {m.timestamp} {m.modelUsed && `• ${m.modelUsed}`}
+                  {m.timestamp}
                 </div>
               </div>
             </div>

@@ -26,11 +26,17 @@ const avatarConfigSchema = new mongoose.Schema({
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  name: { type: String, required: true, trim: true },
+  email: { type: String, required: true, unique: true, trim: true, lowercase: true },
   password: { type: String, required: true },
   allowanceAmount: { type: Number, default: 8000 },
   allowanceCycleDay: { type: Number, default: 1 },
+  lastAllowanceMonth: { type: String, default: null },
+  monthlyAllowances: [{
+    month: { type: String, required: true },
+    amount: { type: Number, required: true },
+    updatedAt: { type: Date, default: Date.now }
+  }],
   currentBalance: { type: Number, default: 5000 },
   rewardPoints: { type: Number, default: 350 }, // Starting points so user can style avatar immediately
   avatarConfig: {

@@ -19,26 +19,41 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    const form = e.currentTarget;
+    const nameEl = form.querySelector<HTMLInputElement>('input[name="name"]');
+    const emailEl = form.querySelector<HTMLInputElement>('input[name="email"]');
+    const passwordEl = form.querySelector<HTMLInputElement>('input[name="password"]');
+
+    const cleanName = (nameEl?.value || name || '').trim();
+    const cleanEmail = (emailEl?.value || email || '').trim().toLowerCase();
+    const cleanPassword = (passwordEl?.value || password || '').trim();
+
+    if (!cleanName || !cleanEmail || !cleanPassword) {
+      setError('Please fill in your name, email, and password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await api.post('/auth/register', {
-        name,
-        email,
-        password,
-        allowanceAmount: parseFloat(allowanceAmount),
-        currentBalance: parseFloat(currentBalance),
-        allowanceCycleDay: parseInt(allowanceCycleDay)
+        name: cleanName,
+        email: cleanEmail,
+        password: cleanPassword,
+        allowanceAmount: parseFloat(allowanceAmount) || 8000,
+        currentBalance: parseFloat(currentBalance) || 3500,
+        allowanceCycleDay: parseInt(allowanceCycleDay) || 1
       });
 
       const { user, accessToken, refreshToken } = res.data;
       onLoginSuccess(user, accessToken, refreshToken);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed');
+      setError(err.response?.data?.error || 'Registration failed. Please check your information.');
     } finally {
       setLoading(false);
     }
@@ -85,6 +100,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
+                  name="name"
                   type="text"
                   required
                   value={name}
@@ -101,7 +117,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
+                    name="email"
                     type="email"
+                    autoComplete="username email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -116,7 +134,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
+                    name="password"
                     type="password"
+                    autoComplete="new-password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

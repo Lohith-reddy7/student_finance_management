@@ -1136,9 +1136,9 @@ export const SavingsSprints: React.FC<SavingsSprintsProps> = ({ user, onRefreshU
           <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300 block">Student Perks Exchange</span>
-              <h2 className="text-xl font-black mt-1 tracking-tight">Redeem Real Campus & Dining Vouchers</h2>
+              <h2 className="text-xl font-black mt-1 tracking-tight">Redeem Student Rewards & Coupons</h2>
               <p className="text-xs text-slate-300 mt-0.5">
-                Turn your saved money and competition victory points into real perks at campus cafes, bookstores, and food apps.
+                Turn your saved money and sprint points into Swiggy cash, BookMyShow tickets, Blinkit snacks, and Spotify passes.
               </p>
             </div>
             <div className="px-5 py-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-center shrink-0">

@@ -25,6 +25,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onDeleteIncome,
   onLogout
 }) => {
+  // Safe incomes array
+  const safeIncomes = Array.isArray(incomes) ? incomes : [];
+
+  // Separate current period/month extra funds from previous months
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const currentYear = now.getFullYear();
+  const currentMonthName = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  const currentMonthIncomes = safeIncomes.filter(inc => {
+    if (!inc?.date) return false;
+    const d = new Date(inc.date);
+    return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
+  });
+
+  const pastMonthIncomes = safeIncomes.filter(inc => {
+    if (!inc?.date) return false;
+    const d = new Date(inc.date);
+    return !(d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear);
+  });
+
+  const currentMonthExtraTotal = currentMonthIncomes.reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+
   // Profile form state
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -35,22 +58,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [profileError, setProfileError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Sync inputs with user prop on load or updates
-  useEffect(() => {
-    if (user) {
-      setName(user.name || '');
-      setEmail(user.email || '');
-      setAllowanceAmount(user.allowanceAmount !== undefined ? user.allowanceAmount : 8000);
-      setCurrentBalance(balance !== undefined ? balance : (user.currentBalance || 3500));
-      setAllowanceCycleDay(user.allowanceCycleDay || 1);
-    }
-  }, [user, balance]);
-
   // Extra Income form state
   const [incomeTitle, setIncomeTitle] = useState('');
   const [incomeAmount, setIncomeAmount] = useState('');
   const [incomeCategory, setIncomeCategory] = useState('Family & Relatives');
   const [isSubmittingIncome, setIsSubmittingIncome] = useState(false);
+  const [showPastIncomeHistory, setShowPastIncomeHistory] = useState(false);
+
+  // Sync inputs with user prop on load or updates
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      const userAllowance = user.allowanceAmount !== undefined ? user.allowanceAmount : 8000;
+      setAllowanceAmount(userAllowance);
+      const maxCash = userAllowance + currentMonthExtraTotal;
+      const initialBal = balance !== undefined ? balance : (user.currentBalance || 3500);
+      setCurrentBalance(Math.min(initialBal, maxCash));
+      setAllowanceCycleDay(user.allowanceCycleDay || 1);
+    }
+  }, [user, balance, currentMonthExtraTotal]);
 
   const categories = [
     'Family & Relatives',
@@ -66,11 +93,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setIsSavingProfile(true);
 
     try {
+      const parsedAllowance = Math.max(0, parseFloat(allowanceAmount.toString()));
+      const maxCash = parsedAllowance + currentMonthExtraTotal;
+      const safeBalance = Math.min(Math.max(0, parseFloat(currentBalance.toString())), maxCash);
+
       const updated = await onUpdateProfile(
         name.trim(),
         email.trim(),
-        parseFloat(allowanceAmount.toString()),
-        parseFloat(currentBalance.toString()),
+        parsedAllowance,
+        safeBalance,
         parseInt(allowanceCycleDay.toString())
       );
       if (updated) {
@@ -189,22 +220,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     required
                     min={0}
                     value={allowanceAmount}
-                    onChange={(e) => setAllowanceAmount(Number(e.target.value))}
+                    onChange={(e) => {
+                      const newAllowance = Math.max(0, Number(e.target.value));
+                      setAllowanceAmount(newAllowance);
+                      const maxPossible = newAllowance + currentMonthExtraTotal;
+                      if (currentBalance > maxPossible) {
+                        setCurrentBalance(maxPossible);
+                      }
+                    }}
                     className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold focus:outline-none focus:border-blue-700"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">Cash Right Now (₹)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 block">Cash Right Now (₹)</label>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Max: ₹{Number(allowanceAmount || 0) + currentMonthExtraTotal}
+                  </span>
+                </div>
                 <div className="relative">
                   <Wallet className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
                     type="number"
                     required
                     min={0}
+                    max={Number(allowanceAmount || 0) + currentMonthExtraTotal}
                     value={currentBalance}
-                    onChange={(e) => setCurrentBalance(Number(e.target.value))}
+                    onChange={(e) => {
+                      const typedVal = Math.max(0, Number(e.target.value));
+                      const maxPossible = Number(allowanceAmount || 0) + currentMonthExtraTotal;
+                      setCurrentBalance(Math.min(typedVal, maxPossible));
+                    }}
                     className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold focus:outline-none focus:border-blue-700"
                   />
                 </div>
@@ -354,22 +402,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </form>
           </div>
 
-          {/* Logged Extra Funds Table */}
+          {/* Logged Extra Funds Table - Strictly Current Month/Period Only */}
           <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-sm">Monthly Extra Funds Log ({incomes.length})</h3>
-              <span className="text-xs font-bold text-emerald-700">
-                Total Extra: {formatCurrency(incomes.reduce((acc, i) => acc + (i.amount || 0), 0))}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {currentMonthName.split(' ')[0]} Extra Allowance Log ({currentMonthIncomes.length})
+                </h3>
+                <p className="text-[11px] text-slate-500">Applies only to this period and resets for next month</p>
+              </div>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 self-start sm:self-auto">
+                {currentMonthName.split(' ')[0]} Extra: {formatCurrency(currentMonthExtraTotal)}
               </span>
             </div>
 
-            {incomes.length === 0 ? (
+            {currentMonthIncomes.length === 0 ? (
               <p className="text-xs text-slate-400 italic text-center py-6">
-                No extra funds logged for this cycle yet.
+                No extra allowance logged for {currentMonthName.split(' ')[0]} yet.
               </p>
             ) : (
               <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto pr-1">
-                {incomes.map((inc) => (
+                {currentMonthIncomes.map((inc) => (
                   <div
                     key={inc._id}
                     className="py-2.5 flex items-center justify-between hover:bg-slate-50/50 px-2 rounded-lg transition"
@@ -397,6 +450,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Previous Months' Extra Allowance History (Maintained in DB without rolling into current month) */}
+            {pastMonthIncomes.length > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowPastIncomeHistory(prev => !prev)}
+                  className="w-full flex items-center justify-between text-xs text-slate-500 hover:text-slate-800 font-medium transition py-1 cursor-pointer"
+                >
+                  <span>Previous Months' Extra History ({pastMonthIncomes.length})</span>
+                  <span className="text-[11px] font-semibold text-blue-700">
+                    {showPastIncomeHistory ? 'Hide' : 'View'}
+                  </span>
+                </button>
+
+                {showPastIncomeHistory && (
+                  <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto pr-1 mt-2">
+                    {pastMonthIncomes.map((inc) => (
+                      <div
+                        key={inc._id}
+                        className="py-2 flex items-center justify-between text-slate-600 hover:bg-slate-50/50 px-2 rounded-lg transition text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="font-medium text-slate-700">{inc.title}</div>
+                          <div className="text-[10px] text-slate-400">
+                            {inc.sourceCategory} • {new Date(inc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <span className="font-semibold text-slate-500">+{formatCurrency(inc.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

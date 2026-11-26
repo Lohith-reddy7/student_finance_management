@@ -9,22 +9,20 @@ export const api = axios.create({
   }
 });
 
-// Strict per-tab session isolation: NEVER share tokens through localStorage across tabs
+// Resilient token management with localStorage persistence and fallback
 export function getAccessToken(): string | null {
-  return sessionStorage.getItem('accessToken');
+  return sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
 }
 
 export function getRefreshToken(): string | null {
-  return sessionStorage.getItem('refreshToken');
+  return sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken');
 }
 
 export function setAuthTokens(accessToken: string, refreshToken: string) {
-  // Store strictly in this tab's sessionStorage to isolate accounts
   sessionStorage.setItem('accessToken', accessToken);
   sessionStorage.setItem('refreshToken', refreshToken);
-  // Clear any shared localStorage tokens so tabs never cross-contaminate
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
+  localStorage.setItem('accessToken', accessToken);
+  localStorage.setItem('refreshToken', refreshToken);
 }
 
 export function clearAuthTokens() {
@@ -34,11 +32,14 @@ export function clearAuthTokens() {
   localStorage.removeItem('refreshToken');
 }
 
-// Attach Access Token to every outgoing request
+// Attach Access Token to outgoing requests (except public auth endpoints)
 api.interceptors.request.use((config) => {
-  const token = getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/register');
+  if (!isAuthEndpoint) {
+    const token = getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -48,7 +49,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/register');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
       const refreshToken = getRefreshToken();
       if (refreshToken) {
@@ -56,14 +59,15 @@ api.interceptors.response.use(
           const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
           const { accessToken, refreshToken: newRefreshToken } = res.data;
           
-          sessionStorage.setItem('accessToken', accessToken);
-          sessionStorage.setItem('refreshToken', newRefreshToken);
+          setAuthTokens(accessToken, newRefreshToken);
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         } catch (refreshErr) {
           clearAuthTokens();
-          window.location.href = '/login';
+          if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+            window.location.href = '/login';
+          }
         }
       }
     }
